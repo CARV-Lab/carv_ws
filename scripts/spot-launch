@@ -1,0 +1,89 @@
+#!/usr/bin/env python3
+"""Launch spot_driver with the arguments in /spot-config/launch.yaml.
+
+This is the wrapper container's main process. carv_ws/docker-compose.yaml's command is just
+`spot-launch`, so everything about HOW the driver starts lives in a file the config page can
+write, rather than in a `command:` compose has to interpolate.
+
+Why it exists at all: compose reads .env on the HOST, at `up` time, and freezes the result into
+the container's Config.Cmd. `docker restart` re-runs that stored argv and the daemon never
+re-reads .env, so a launch argument that came from .env could not be changed by anything short
+of re-creating the container. Read the arguments in here instead and a launch change is a plain
+`docker-compose restart wrapper` from carv_ws/, exactly like a spot_config.yaml change.
+
+This script is a dumb translator on purpose: every key it finds becomes one `key:=value`
+argument, and it knows nothing about which values are defaults. web_portal/api/config_manager/launchschema.py
+is the single source of truth for that, and it writes only the keys that need passing.
+"""
+
+import os
+import sys
+
+import yaml
+
+LAUNCH_FILE = os.environ.get("SPOT_LAUNCH_FILE", "/spot-config/launch.yaml")
+
+LAUNCH_ARGV = ["ros2", "launch", "spot_driver", "spot_driver.launch.py"]
+
+# The safety net, and the ONE place a default is duplicated. If launch.yaml is missing or
+# unreadable we must not launch bare: launch_image_publishers defaults to True upstream, and an
+# empty config_file means no config file at all -- which would silently discard the passive
+# control posture in spot_config.yaml. These four values are what the old .env held, and what
+# its `${VAR:-default}` syntax guaranteed when .env went missing. Keep them in step with the
+# `core` arguments in web_portal/api/config_manager/launchschema.py.
+FALLBACK = {
+    "config_file": "/spot-config/spot_config.yaml",
+    "controllable": False,
+    "launch_rviz": False,
+    "launch_image_publishers": False,
+}
+
+
+def render(value):
+    """One launch argument value as launch expects to parse it.
+
+    Booleans are capitalised deliberately. DeclareBooleanLaunchArgument restricts the argument
+    to choices=["true", "True", "false", "False"] and launch checks that list case-sensitively,
+    so "1", "yes" and "TRUE" all fail the launch outright.
+    """
+    if isinstance(value, bool):
+        return "True" if value else "False"
+    if value is None:
+        return ""
+    return str(value)
+
+
+def load():
+    """The launch arguments to pass, and a line explaining where they came from."""
+    try:
+        with open(LAUNCH_FILE) as fh:
+            doc = yaml.safe_load(fh) or {}
+    except (OSError, yaml.YAMLError) as exc:
+        return FALLBACK, f"cannot read {LAUNCH_FILE} ({exc}); using built-in fallback arguments"
+
+    arguments = doc.get("launch_arguments")
+    if not isinstance(arguments, dict) or not arguments:
+        return FALLBACK, f"{LAUNCH_FILE} has no launch_arguments; using built-in fallback"
+    return arguments, f"launch arguments from {LAUNCH_FILE}"
+
+
+def main():
+    arguments, source = load()
+    argv = LAUNCH_ARGV + [f"{key}:={render(value)}" for key, value in arguments.items()]
+
+    # Printed before the exec so `docker logs wrapper | head` answers "what was it actually
+    # launched with?" without anyone having to reason about the file.
+    print(f"[spot-launch] {source}", flush=True)
+    print("[spot-launch] " + " ".join(argv), flush=True)
+
+    # exec, not spawn: the driver must BE PID 1's process, so signals reach it and Docker's
+    # restart policy watches the thing that matters.
+    os.execvp(argv[0], argv)
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except OSError as exc:
+        print(f"[spot-launch] cannot exec ros2: {exc}", file=sys.stderr, flush=True)
+        sys.exit(1)
