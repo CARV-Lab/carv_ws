@@ -1,0 +1,6 @@
+[submodule "src/reflect_id"]
+	path = src/reflect_id
+	url = https://github.com/CARV-Lab/reflect_id.git
+[submodule "src/punch_bot"]
+	path = src/punch_bot
+	url = https://github.com/CARV-Lab/punch_bot.git
