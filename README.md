@@ -14,5 +14,6 @@ git submodule update
 ## 2. Set the credentials in `config/robot.env`
 ## 3. Build and Run
 ```bash
-docker compose up -d --build
+docker compose up -d --build # WSL
+docker-compose up -d --build # Core I/O
 ```
