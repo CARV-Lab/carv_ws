@@ -14,13 +14,13 @@ services:
     container_name: foxglove
     command: ros2 run foxglove_bridge foxglove_bridge --ros-args -p port:=21000
 
-  wrapper:
-    <<: *ros2_service
-    container_name: wrapper
-    env_file: ./config/robot.env
-    command: ["spot-launch"]
-    volumes:
-      - ./config:/spot-config:ro
+  # wrapper:
+  #   <<: *ros2_service
+  #   container_name: wrapper
+  #   env_file: ./config/robot.env
+  #   command: ["spot-launch"]
+  #   volumes:
+  #     - ./config:/spot-config:ro
 
   # reflect_id:
   #   <<: *ros2_service
