@@ -22,6 +22,18 @@ services:
     volumes:
       - ./config:/spot-config:ro
 
+  velodyne:
+    <<: *ros2_service
+    container_name: velodyne
+    command: ros2 launch reflect_id velodyne.launch.py
+
+  slam:
+    <<: *ros2_service
+    container_name: slam
+    command: ros2 launch punch_bot slam.launch.py mode:=new map_name:=test
+    volumes:
+      - ./src/punch_bot/maps:/maps
+
   # reflect_id:
   #   <<: *ros2_service
   #   container_name: reflect_id

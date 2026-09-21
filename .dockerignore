@@ -2,3 +2,5 @@
 !Dockerfile
 !scripts
 !src
+src/punch_bot/maps
+**/__pycache__

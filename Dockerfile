@@ -7,6 +7,8 @@ RUN apt-get update && apt-get install -y \
       ros-humble-velodyne-driver \
       ros-humble-velodyne-pointcloud \
       ros-humble-velodyne-msgs \
+      ros-humble-slam-toolbox \
+      ros-humble-pointcloud-to-laserscan \
       ros-humble-rosbag2-storage-mcap && \
     rm -rf /var/lib/apt/lists/*
 
